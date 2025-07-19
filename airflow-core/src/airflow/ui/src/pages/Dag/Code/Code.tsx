@@ -34,6 +34,7 @@ import type { ApiError } from "openapi/requests/core/ApiError";
 import type { DAGSourceResponse } from "openapi/requests/types.gen";
 import { DagVersionSelect } from "src/components/DagVersionSelect";
 import { ErrorAlert } from "src/components/ErrorAlert";
+import { SearchBar } from "src/components/SearchBar";
 import Time from "src/components/Time";
 import { ClipboardRoot, ClipboardButton, Tooltip } from "src/components/ui";
 import { ProgressBar } from "src/components/ui";
@@ -78,6 +79,8 @@ export const Code = () => {
   const defaultWrap = Boolean(useConfig("default_wrap"));
 
   const [wrap, setWrap] = useState(defaultWrap);
+  const [searchText, setSearchText] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("all");
 
   const toggleWrap = () => setWrap(!wrap);
   const { colorMode } = useColorMode();
@@ -144,6 +147,50 @@ export const Code = () => {
             </Button>
           </Tooltip>
         </HStack>
+      </HStack>
+      <HStack mt={2} mb={2} gap={4} justifyContent="space-between">
+        <HStack gap={4}>
+          <Box>
+            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
+              Base Version
+            </Heading>
+            <DagVersionSelect showLabel={false} />
+          </Box>
+          <Box>
+            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
+              Compared Version
+            </Heading>
+            <DagVersionSelect showLabel={false} />
+          </Box>
+          <Box>
+            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
+              Section Filter
+            </Heading>
+            <select
+              value={sectionFilter}
+              onChange={(e) => setSectionFilter(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                fontSize: '12px'
+              }}
+            >
+              <option value="all">All Code</option>
+              <option value="tasks">Task Definitions</option>
+              <option value="schedule">Schedule Config</option>
+              <option value="imports">Imports</option>
+              <option value="dependencies">Dependencies</option>
+            </select>
+          </Box>
+        </HStack>
+        <SearchBar
+          defaultValue={searchText}
+          hideAdvanced
+          hotkeyDisabled={false}
+          onChange={setSearchText}
+          placeHolder="Search Code..."
+        />
       </HStack>
       {/* We want to show an empty state on 404 instead of an error */}
       <ErrorAlert error={error ?? (codeError?.status === 404 ? undefined : codeError)} />
