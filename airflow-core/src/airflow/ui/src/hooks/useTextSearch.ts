@@ -49,61 +49,36 @@ export const useTextSearch = (options: UseTextSearchOptions = {}) => {
         let isRegexPattern = false;
         let pattern: string | undefined;
 
-        try {
-          if (enableRegex && searchText.startsWith('%')) {
-            // Regex pattern search
-            pattern = searchText.slice(1);
-            const regex = new RegExp(pattern, caseSensitive ? '' : 'i');
-            isMatch = regex.test(line);
-            isRegexPattern = true;
-
-            if (debugLogging && isMatch) {
-              console.log(`🔍 Regex match found:`, {
-                pattern,
-                lineText: line.trim(),
-                lineNumber
-              });
-            }
-          } else {
-            // Regular text search
-            const searchValue = caseSensitive ? searchText : searchText.toLowerCase();
-            const lineValue = caseSensitive ? line : line.toLowerCase();
-            isMatch = lineValue.includes(searchValue);
-
-            if (debugLogging && isMatch) {
-              console.log(`🔍 Text match found:`, {
-                searchText,
-                lineText: line.trim(),
-                lineNumber
-              });
-            }
-          }
-
-          if (isMatch) {
-            matches.push({
-              lineNumber,
-              lineText: line,
-              isRegexPattern,
-              pattern
-            });
-          }
-        } catch (error) {
-          // Invalid regex pattern, fallback to text search
-          if (debugLogging) {
-            console.log(`⚠️ Regex error, falling back to text search:`, error);
-          }
+        if (enableRegex && searchText.startsWith('%')) {
+          pattern = searchText.slice(1);
+          const regexPattern = pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/%/g, '.*')
+            .replace(/_/g, '.');
           
+          const regex = new RegExp(regexPattern, caseSensitive ? '' : 'i');
+          isMatch = regex.test(line);
+          isRegexPattern = true;
+        } else {
           const searchValue = caseSensitive ? searchText : searchText.toLowerCase();
           const lineValue = caseSensitive ? line : line.toLowerCase();
-          isMatch = lineValue.includes(searchValue);
+          
+          const pattern = `%${searchValue}%`;
+          const regexPattern = pattern
+            .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/%/g, '.*');
+          
+          const regex = new RegExp(regexPattern, caseSensitive ? '' : 'i');
+          isMatch = regex.test(lineValue);
+        }
 
-          if (isMatch) {
-            matches.push({
-              lineNumber,
-              lineText: line,
-              isRegexPattern: false
-            });
-          }
+        if (isMatch) {
+          matches.push({
+            lineNumber,
+            lineText: line,
+            isRegexPattern,
+            pattern
+          });
         }
       });
 
@@ -112,33 +87,7 @@ export const useTextSearch = (options: UseTextSearchOptions = {}) => {
     [enableRegex, caseSensitive, debugLogging]
   );
 
-  const isLineMatch = useCallback(
-    (lineText: string, searchText: string): boolean => {
-      if (!searchText.trim()) {
-        return false;
-      }
 
-      try {
-        if (enableRegex && searchText.startsWith('%')) {
-          // Regex pattern search
-          const pattern = searchText.slice(1);
-          const regex = new RegExp(pattern, caseSensitive ? '' : 'i');
-          return regex.test(lineText);
-        } else {
-          // Regular text search
-          const searchValue = caseSensitive ? searchText : searchText.toLowerCase();
-          const lineValue = caseSensitive ? lineText : lineText.toLowerCase();
-          return lineValue.includes(searchValue);
-        }
-      } catch (error) {
-        // Invalid regex pattern, fallback to text search
-        const searchValue = caseSensitive ? searchText : searchText.toLowerCase();
-        const lineValue = caseSensitive ? lineText : lineText.toLowerCase();
-        return lineValue.includes(searchValue);
-      }
-    },
-    [enableRegex, caseSensitive]
-  );
 
   const getHighlightStyle = useCallback(
     (isMatch: boolean, colorMode: 'light' | 'dark' = 'light') => {
@@ -155,7 +104,6 @@ export const useTextSearch = (options: UseTextSearchOptions = {}) => {
 
   return {
     searchInText,
-    isLineMatch,
     getHighlightStyle,
   };
 }; 

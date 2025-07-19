@@ -17,7 +17,7 @@
  * under the License.
  */
 import { Box, Button, Heading, HStack, Link } from "@chakra-ui/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -78,20 +78,28 @@ export const Code = () => {
   });
 
   const defaultWrap = Boolean(useConfig("default_wrap"));
-
   const [wrap, setWrap] = useState(defaultWrap);
   const [searchText, setSearchText] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("all");
 
   const toggleWrap = () => setWrap(!wrap);
   const { colorMode } = useColorMode();
 
-  // Use the text search hook
-  const { isLineMatch: checkLineMatch, getHighlightStyle } = useTextSearch({
+  // Use the text search hook for full-text search
+  const { searchInText, getHighlightStyle } = useTextSearch({
     enableRegex: true,
     caseSensitive: false,
-    debugLogging: true
+    debugLogging: false // Disable debug logging in production
   });
+
+  // Search in full text and map to line numbers
+  const matchedLineNumbers = useMemo(() => {
+    if (!searchText?.trim() || !code?.content) {
+      return new Set<number>();
+    }
+    
+    const matches = searchInText(code.content, searchText);
+    return new Set(matches.map(m => m.lineNumber));
+  }, [searchText, code?.content, searchInText]);
 
   useHotkeys("w", toggleWrap);
 
@@ -136,7 +144,13 @@ export const Code = () => {
           }
         </HStack>
         <HStack>
-          <DagVersionSelect showLabel={false} />
+          <SearchBar
+            defaultValue={searchText}
+            hideAdvanced
+            hotkeyDisabled={false}
+            onChange={setSearchText}
+            placeHolder="Find in code..."
+          />
           <ClipboardRoot value={code?.content ?? ""}>
             <ClipboardButton />
           </ClipboardRoot>
@@ -156,53 +170,25 @@ export const Code = () => {
           </Tooltip>
         </HStack>
       </HStack>
-      <HStack mt={2} mb={2} gap={4} justifyContent="space-between">
-        <HStack gap={4}>
-          <Box>
-            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
-              Base Version
-            </Heading>
-            <DagVersionSelect showLabel={false} />
-          </Box>
-          <Box>
-            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
-              Compared Version
-            </Heading>
-            <DagVersionSelect showLabel={false} />
-          </Box>
-          <Box>
-            <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
-              Section Filter
-            </Heading>
-            <select
-              value={sectionFilter}
-              onChange={(e) => setSectionFilter(e.target.value)}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-                fontSize: '12px'
-              }}
-            >
-              <option value="all">All Code</option>
-              <option value="tasks">Task Definitions</option>
-              <option value="schedule">Schedule Config</option>
-              <option value="imports">Imports</option>
-              <option value="dependencies">Dependencies</option>
-            </select>
-          </Box>
-        </HStack>
-        <SearchBar
-          defaultValue={searchText}
-          hideAdvanced
-          hotkeyDisabled={false}
-          onChange={setSearchText}
-          placeHolder="Search Code..."
-        />
+      <HStack>
+        <Box>
+          <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
+            Base Version
+          </Heading>
+          <DagVersionSelect showLabel={false} />
+        </Box>
+        <Box>
+          <Heading as="h5" fontSize="12px" size="sm" color="fg.muted" mb={1}>
+            Compared Version
+          </Heading>
+          <DagVersionSelect showLabel={false} />
+        </Box>
       </HStack>
+
       {/* We want to show an empty state on 404 instead of an error */}
       <ErrorAlert error={error ?? (codeError?.status === 404 ? undefined : codeError)} />
       <ProgressBar size="xs" visibility={isLoading || isCodeLoading ? "visible" : "hidden"} />
+      
       <Box
         css={{
           "& *::selection": {
@@ -227,19 +213,7 @@ export const Code = () => {
                   };
                 }
 
-                const lineText = children?.map(child => 
-                  child.type === "text" ? child.value : ""
-                ).join("") || "";
-                
-                const isLineMatch = checkLineMatch(lineText, searchText);
-
-                if (searchText && isLineMatch) {
-                  console.log(`🎨 5. Applying highlight to line ${index + 1}:`, {
-                    lineText: lineText.trim(),
-                    searchText: searchText,
-                    isRegexPattern: searchText.startsWith("%")
-                  });
-                }
+                const isLineMatch = matchedLineNumbers.has(index + 1);
 
                 row.children = [
                   lineNumberElement,
