@@ -219,12 +219,62 @@ export const Code = () => {
                   };
                 }
 
+                const lineText = children?.map(child => 
+                  child.type === "text" ? child.value : ""
+                ).join("") || "";
+                
+                const isLineMatch = searchText && (() => {
+                  try {
+                    if (searchText.startsWith("%")) {
+                      const pattern = searchText.slice(1);
+                      const regex = new RegExp(pattern, "i");
+                      const match = regex.test(lineText);
+                      
+                      if (match) {
+                        console.log(`🔍 2. Regex match found:`, {
+                          pattern: pattern,
+                          lineText: lineText.trim(),
+                          lineNumber: index + 1
+                        });
+                      }
+                      
+                      return match;
+                    } else {
+                      const match = lineText.toLowerCase().includes(searchText.toLowerCase());
+                      
+                      if (match) {
+                        console.log(`🔍 3. Text match found:`, {
+                          searchText: searchText,
+                          lineText: lineText.trim(),
+                          lineNumber: index + 1
+                        });
+                      }
+                      
+                      return match;
+                    }
+                  } catch (error) {
+                    console.log(`⚠️ 4.Regex error, falling back to text search:`, error);
+                    return lineText.toLowerCase().includes(searchText.toLowerCase());
+                  }
+                })();
+
+                if (searchText && isLineMatch) {
+                  console.log(`🎨 5. Applying highlight to line ${index + 1}:`, {
+                    lineText: lineText.trim(),
+                    searchText: searchText,
+                    isRegexPattern: searchText.startsWith("%")
+                  });
+                }
+
                 row.children = [
                   lineNumberElement,
                   {
                     children,
                     properties: {
                       className: [],
+                      style: isLineMatch ? {
+                        backgroundColor: colorMode === "dark" ? "#454745" : "lightgray",
+                      } : {},
                     },
                     tagName: "span",
                     type: "element",
