@@ -40,6 +40,7 @@ import { ClipboardRoot, ClipboardButton, Tooltip } from "src/components/ui";
 import { ProgressBar } from "src/components/ui";
 import { useColorMode } from "src/context/colorMode";
 import useSelectedVersion from "src/hooks/useSelectedVersion";
+import { useTextSearch } from "src/hooks/useTextSearch";
 import { useConfig } from "src/queries/useConfig";
 
 SyntaxHighlighter.registerLanguage("python", python);
@@ -84,6 +85,13 @@ export const Code = () => {
 
   const toggleWrap = () => setWrap(!wrap);
   const { colorMode } = useColorMode();
+
+  // Use the text search hook
+  const { isLineMatch: checkLineMatch, getHighlightStyle } = useTextSearch({
+    enableRegex: true,
+    caseSensitive: false,
+    debugLogging: true
+  });
 
   useHotkeys("w", toggleWrap);
 
@@ -223,40 +231,7 @@ export const Code = () => {
                   child.type === "text" ? child.value : ""
                 ).join("") || "";
                 
-                const isLineMatch = searchText && (() => {
-                  try {
-                    if (searchText.startsWith("%")) {
-                      const pattern = searchText.slice(1);
-                      const regex = new RegExp(pattern, "i");
-                      const match = regex.test(lineText);
-                      
-                      if (match) {
-                        console.log(`🔍 2. Regex match found:`, {
-                          pattern: pattern,
-                          lineText: lineText.trim(),
-                          lineNumber: index + 1
-                        });
-                      }
-                      
-                      return match;
-                    } else {
-                      const match = lineText.toLowerCase().includes(searchText.toLowerCase());
-                      
-                      if (match) {
-                        console.log(`🔍 3. Text match found:`, {
-                          searchText: searchText,
-                          lineText: lineText.trim(),
-                          lineNumber: index + 1
-                        });
-                      }
-                      
-                      return match;
-                    }
-                  } catch (error) {
-                    console.log(`⚠️ 4.Regex error, falling back to text search:`, error);
-                    return lineText.toLowerCase().includes(searchText.toLowerCase());
-                  }
-                })();
+                const isLineMatch = checkLineMatch(lineText, searchText);
 
                 if (searchText && isLineMatch) {
                   console.log(`🎨 5. Applying highlight to line ${index + 1}:`, {
@@ -272,9 +247,7 @@ export const Code = () => {
                     children,
                     properties: {
                       className: [],
-                      style: isLineMatch ? {
-                        backgroundColor: colorMode === "dark" ? "#454745" : "lightgray",
-                      } : {},
+                      style: getHighlightStyle(isLineMatch, colorMode),
                     },
                     tagName: "span",
                     type: "element",
